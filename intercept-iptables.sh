@@ -2,7 +2,7 @@
 
 # File stdin format:
 #
-# basePort
+# sourceIP	basePort1	basePort2
 # interceptedIP	interceptedPort	interceptedDomain
 # interceptedIP	interceptedPort	interceptedDomain
 # interceptedIP	interceptedPort	interceptedDomain
@@ -11,7 +11,7 @@
 # ...
 #
 # Sample:
-# 9000	10000
+# 192.168.0.4	9000	10000
 # 123.48.12.122	443	googblie.com
 # 123.48.12.128	143	schmooblie.com
 # 123.43.12.112	587	lars.mooblie.com
@@ -19,8 +19,9 @@
 set -e
 
 read localBase
-localBasePort1="$(cut -f 1 <<< "$localBase")"
-localBasePort2="$(cut -f 2 <<< "$localBase")"
+sourceIP="$(cut -f 1 <<< "$localBase")"
+localBasePort1="$(cut -f 2 <<< "$localBase")"
+localBasePort2="$(cut -f 3 <<< "$localBase")"
 stunnelConfigDir="$(mktemp -d)"
 cd $stunnelConfigDir
 
@@ -57,7 +58,7 @@ while read line; do
 	clientConfig="client-$counter.conf"
 	
 	echo "[+] Configuring iptables to redirect $remoteIP:$remotePort <--> incoming:$localPort1"
-	iptables -t nat -A PREROUTING -p TCP --destination "$remoteIP" --dport "$remotePort" -j REDIRECT --to-port "$localPort1"
+	iptables -t nat -A PREROUTING -p TCP --source "$sourceIP" --destination "$remoteIP" --dport "$remotePort" -j REDIRECT --to-port "$localPort1"
 
 	if [ ! -f "$remoteDomain.pem" ]; then
 		echo "[+] Generating host certificate."
