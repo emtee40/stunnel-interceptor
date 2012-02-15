@@ -55,7 +55,7 @@ while read line; do
 	clientConfig="client-$counter.conf"
 	
 	echo "[+] Configuring iptables to redirect $remoteIP:$remotePort <--> incoming:$localPort1"
-	iptables -t nat -A PREROUTING -p TCP --destination $remoteIP --dport $remotePort -j REDIRECT --to-port $localPort1
+	iptables -t nat -A PREROUTING -p TCP --destination "$remoteIP" --dport "$remotePort" -j REDIRECT --to-port "$localPort1"
 	
 	echo "[+] Writing stunnel config for incoming:$localPort1 <--> localhost:$localPort2"
 	echo "	foreground=no
