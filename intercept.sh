@@ -37,7 +37,6 @@ commonName=*
 organizationalUnitName=INTERCEPT
 emailAddress=$(whoami)@$(uname -n)"
 openssl req -new -x509 -nodes -sha1 -days 3650 -key host.key -subj "$(tr "\n" "/" <<< "$subj")" > host.cert
-openssl x509 -noout -fingerprint -text < host.cert > host.info
 cat host.cert host.key > host.pem
 
 
