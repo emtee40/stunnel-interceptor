@@ -52,7 +52,7 @@ while read line; do
 	clientConfig="client-$counter.conf"
 	
 	echo "[+] Configuring $device to $localIP"
-	ifconfig "$device" "$localIP" netmask "$localBaseNetmask"
+	ifconfig "$device" "$localIP" netmask "$localBaseNetmask up"
 	echo "[+] Writing stunnel config for $remoteIP:$remotePort <--> $localIP:$localPort"
 	echo "	foreground=no
 		service=stunnel
