@@ -25,14 +25,13 @@ stunnelConfigDir="$(mktemp -d)"
 cd $stunnelConfigDir
 
 echo "[+] Killing previous stunnels."
-killall -9 stunnel
+killall -9 stunnel || true
 
 echo "[+] Configuring iptables and forwarding."
 echo 1 > /proc/sys/net/ipv4/ip_forward
 iptables -t nat -F
 
 echo "[+] Generating wildcard certificate."
-openssl genrsa 2048 > host.key
 subj="
 C=CR
 ST=ST
@@ -41,9 +40,15 @@ localityName=TOWN
 commonName=*
 organizationalUnitName=INTERCEPT
 emailAddress=$(whoami)@$(uname -n)"
-openssl req -new -x509 -nodes -sha1 -days 3650 -key host.key -subj "$(tr "\n" "/" <<< "$subj")" > host.cert
-cat host.cert host.key > host.pem
-
+mkdir -p demoCA/{certs,crl,newcerts,private}
+echo 01 > demoCA/serial
+touch demoCA/index.txt
+openssl req -new -x509 -keyout demoCA/private/cakey.pem -out demoCA/cacert.pem -days 3652 -passout pass:1234 -subj "$(tr "\n" "/" <<< "$subj")"
+openssl req -new -keyout ./wildcard.req -out ./wildcard.req -days 3652 -passout pass:1234 -passin pass:1234 -subj "$(tr "\n" "/" <<< "$subj")"
+echo -e "y\ny"|openssl ca  -passin pass:1234 -policy policy_anything -out wildcard.crt -infiles wildcard.req
+openssl rsa -passin pass:1234 < wildcard.req > wildcard.key
+cat wildcard.crt wildcard.key > wildcard.pem
+openssl pkcs12 -passin pass:1234 -passout pass:1234 -export -in demoCA/cacert.pem -inkey demoCA/private/cakey.pem -out cacert.p12
 
 counter=0
 while read line; do
@@ -60,7 +65,7 @@ while read line; do
 	echo "[+] Writing stunnel config for incoming:$localPort1 <--> localhost:$localPort2"
 	echo "	foreground=no
 		service=stunnel
-		cert=host.pem
+		cert=wildcard.pem
 		[server]
 		accept=0.0.0.0:$localPort1
 		connect=127.0.0.1:$localPort2" > "$serverConfig"
@@ -79,4 +84,5 @@ while read line; do
 done
 
 cd - > /dev/null
-rm -rf "$stunnelConfigDir"
+#rm -rf "$stunnelConfigDir"
+echo $stunnelConfigDir
