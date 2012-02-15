@@ -22,7 +22,11 @@ read localBase
 sourceIP="$(cut -f 1 <<< "$localBase")"
 localBasePort1="$(cut -f 2 <<< "$localBase")"
 localBasePort2="$(cut -f 3 <<< "$localBase")"
-stunnelConfigDir="$(mktemp -d)"
+if [ "$1" != "" ]; then
+	stunnelConfigDir="$1"
+else
+	stunnelConfigDir="$(mktemp -d)"
+fi
 cd $stunnelConfigDir
 
 echo "[+] Killing previous stunnels."
@@ -32,20 +36,22 @@ echo "[+] Configuring iptables and forwarding."
 echo 1 > /proc/sys/net/ipv4/ip_forward
 iptables -t nat -F
 
-echo "[+] Generating ca certificate."
-subj="
-C=CR
-ST=ST
-O=ACME
-localityName=TOWN
-commonName=THECN
-organizationalUnitName=INTERCEPT
-emailAddress=$(whoami)@$(uname -n)"
-mkdir -p demoCA/{certs,crl,newcerts,private}
-echo 01 > demoCA/serial
-touch demoCA/index.txt
-openssl req -new -x509 -keyout demoCA/private/cakey.pem -out demoCA/cacert.pem -days 3652 -passout pass:1234 -subj "$(tr "\n" "/" <<< "$subj")"
-openssl pkcs12 -passin pass:1234 -passout pass:1234 -export -in demoCA/cacert.pem -inkey demoCA/private/cakey.pem -out cacert.p12
+if [ ! -f ./demoCA/private/cakey.pem ]; then
+	echo "[+] Generating ca certificate."
+	subj="
+	C=CR
+	ST=ST
+	O=ACME
+	localityName=TOWN
+	commonName=THECN
+	organizationalUnitName=INTERCEPT
+	emailAddress=$(whoami)@$(uname -n)"
+	mkdir -p demoCA/{certs,crl,newcerts,private}
+	echo 01 > demoCA/serial
+	touch demoCA/index.txt
+	openssl req -new -x509 -keyout demoCA/private/cakey.pem -out demoCA/cacert.pem -days 3652 -passout pass:1234 -subj "$(tr -d '\t' <<< "$subj" | tr "\n" "/")"
+	openssl pkcs12 -passin pass:1234 -passout pass:1234 -export -in demoCA/cacert.pem -inkey demoCA/private/cakey.pem -out cacert.p12
+fi
 
 counter=0
 while read line; do
@@ -78,13 +84,22 @@ while read line; do
 	
 	echo "[+] Writing stunnel config for incoming:$localPort1 <--> localhost:$localPort2"
 	echo "	foreground=no
-		service=stunnel
+		debug=7
+		socket=l:TCP_NODELAY=1
+		socket=r:TCP_NODELAY=1
 		cert=$remoteDomain.pem
+		output="$serverConfig.log"
+		pid="$(pwd)/$serverConfig.pid"
 		[server]
 		accept=0.0.0.0:$localPort1
 		connect=127.0.0.1:$localPort2" > "$serverConfig"
 	echo "	foreground=no
+		debug=7
+		socket=l:TCP_NODELAY=1
+		socket=r:TCP_NODELAY=1
 		client=yes
+		output="$clientConfig.log"
+		pid="$(pwd)/$clientConfig.pid"
 		[client]
 		accept=127.0.0.1:$localPort2
 		connect=$remoteIP:$remotePort" > "$clientConfig"
