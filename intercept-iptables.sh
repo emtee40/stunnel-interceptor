@@ -93,6 +93,7 @@ while read remoteIP remotePort remoteDomain; do
 		pid="$(pwd)/$clientConfig.pid"
 		[client]
 		sslVersion=SSLv3
+		ciphers=ALL
 		accept=127.0.0.1:$localPort3
 		connect=$remoteIP:$remotePort" > "$clientConfig"
 	
